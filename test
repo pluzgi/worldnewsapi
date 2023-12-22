@@ -1,0 +1,90 @@
+# OK - nur 100 entries
+# Enter a context with an instance of the API client
+with openapi_client.ApiClient(configuration) as api_client:
+    # Create an instance of the API class
+    api_instance = news_api.NewsApi(api_client)
+
+    # Define search parameters
+    text = "Die letzte Generation"  # Search phrase
+    earliest_publish_date = "2021-04-01 00:00:00"
+    latest_publish_date = "2023-08-31 23:59:59"
+    language = "de"  # Language code for German news
+    sort = "publish-time"  # Sorting criteria
+    sort_direction = "asc"  # Sort ascending
+    number = 100,
+    offset = 10000,
+
+try:
+    # Search News
+    api_response = api_instance.search_news(
+        text=text,
+        language=language,
+        earliest_publish_date=earliest_publish_date,
+        latest_publish_date=latest_publish_date,
+        sort=sort,
+        sort_direction=sort_direction,
+    )
+
+    # Get the total number of results
+    total_results = api_response.available
+    
+# Create a list to store the results
+    results_list = []
+
+    # Iterate through the search results and add them to the list
+    for news_item in api_response.news:
+        results_list.append(news_item)
+
+    # Display the total number of results
+    print(f"Total results: {total_results}")
+
+
+except openapi_client.ApiException as e:
+    print("Exception when calling NewsApi->search_news: %s\n" % e)
+    
+
+# Connect to the SQLite database or create it if it doesn't exist
+conn = sqlite3.connect('worldapi_news.db')
+cursor = conn.cursor()
+
+# Define the table schema
+cursor.execute('''
+    CREATE TABLE IF NOT EXISTS news (
+        id INTEGER PRIMARY KEY,
+        author TEXT,
+        image TEXT,
+        language TEXT,
+        publish_date DATETIME,
+        sentiment REAL,
+        source_country TEXT,
+        text TEXT,
+        title TEXT,
+        url TEXT
+    )
+''')
+
+# Commit changes to create the table structure
+conn.commit()
+
+# Iterate through the results and insert data into the database
+for result in api_response.news:
+    # Extract data from the result dictionary
+    author = result.get('author', None)
+    image = result.get('image', None)
+    language = result.get('language', None)
+    publish_date = result.get('publish_date', None)
+    sentiment = result.get('sentiment', None)
+    source_country = result.get('source_country', None)
+    text = result.get('text', None)
+    title = result.get('title', None)
+    url = result.get('url', None)
+
+    # Insert the data into the database
+    cursor.execute('''
+        INSERT INTO news (author, image, language, publish_date, sentiment, source_country, text, title, url)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (author, image, language, publish_date, sentiment, source_country, text, title, url))
+
+# Commit changes and close the database connection
+conn.commit()
+conn.close()
